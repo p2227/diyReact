@@ -1,0 +1,20 @@
+{
+  "name": "diyReact",
+  "version": "1.0.0",
+  "description": "learn React in deep by coding",
+  "main": "index.js",
+  "scripts": {
+    "dev": "hs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/p2227/diyReact.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/p2227/diyReact/issues"
+  },
+  "homepage": "https://github.com/p2227/diyReact#readme"
+}
