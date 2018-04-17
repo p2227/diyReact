@@ -2,7 +2,8 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-04-17 16:46:54
+ * @Last Modified time: 2018-04-17 20:38:32
+ * 更新dom
  */
 
 var React = {}, ReactDOM = {};
@@ -56,7 +57,8 @@ React.createElement = function(type,props,...children){
     type,
     props,
     key:props.key || null,
-    _dom:null
+    _dom:null,
+    _renderOne:null
   }
 }
 
@@ -112,7 +114,7 @@ ReactDOM.render = function(element,mountNode){
     constructor(props) {
       super(props);
       this.state = {
-        checked: true
+        checked: true,
       };
     }
     render() {
