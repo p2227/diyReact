@@ -2,7 +2,7 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-04-16 16:26:33
+ * @Last Modified time: 2018-04-16 16:57:42
  */
 
 var React = {}, ReactDOM = {};
@@ -45,7 +45,7 @@ function renderOne(element){
       if(element.key) domElement.key = element.key;
       const { props } = element;
       if(props.style){
-        //此处要建立一个css in js 和 实际 js 的对应关系，一般是建立一个字典，然后有特殊的特殊处理，鉴于时间问题先省略
+        //此处要建立一个css in js 和 css prop 的对应关系，一般是建立一个字典，然后有特殊的特殊处理，鉴于时间问题先省略
         Object.assign(domElement.style, props.style);
       }
       if(props.type){
