@@ -2,7 +2,7 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-04-17 20:38:32
+ * @Last Modified time: 2018-04-21 22:25:06
  * 更新dom
  */
 
@@ -108,59 +108,19 @@ ReactDOM.render = function(element,mountNode){
   mountNode.appendChild(renderOne(element));
 }
 
-
-//reactClass ReactELementclass BHelloMessage extends React.Component {
-  class BHelloMessage extends React.Component {
-    constructor(props) {
-      super(props);
-      this.state = {
-        checked: true,
-      };
-    }
-    render() {
-      return React.createElement(
-        'div',
-        null,
-        React.createElement(
-          'p',
-          null,
-          'Hello ',
-          this.props.name,
-          ' ',
-          React.createElement(
-            'span',
-            { style: { color: 'red' } },
-            ['unchecked', 'checked'][+this.state.checked]
-          )
-        ),
-        React.createElement(
-          'label',
-          null,
-          React.createElement('input', { type: 'checkbox', checked: this.state.checked, onClick: () => this.setState({
-              checked: !this.state.checked
-            }) }),
-          'change state'
-        )
-      );
-    }
-  }
-  
-  ReactDOM.render(React.createElement(BHelloMessage, { name: 'Taylor' }), document.getElementById('root'));
-/**
- * 
 class BHelloMessage extends React.Component {
   constructor(props){
-	  super(props)
+    super(props)
     this.state = {
-  		checked:true
-  	}
+      checked:true
+    }
   }
   render() {
     return (
       <div>
         <p>Hello {this.props.name} <span style={{color:'red'}}>{['unchecked','checked'][+this.state.checked]}</span></p>
         <label><input type="checkbox" checked={this.state.checked} onClick={()=>this.setState({
-            	checked: !this.state.checked
+              checked: !this.state.checked
             })}/>change state</label>
       </div>
     );
@@ -171,4 +131,3 @@ ReactDOM.render(
   <BHelloMessage name="Taylor" />,
   document.getElementById('root')
 );
- */

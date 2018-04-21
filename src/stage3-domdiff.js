@@ -2,8 +2,8 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-04-20 18:08:52
- * 更新dom
+ * @Last Modified time: 2018-04-21 22:53:42
+ * 更新列表
  */
 
 var React = {}, ReactDOM = {};
@@ -63,10 +63,11 @@ function normalizeChildren(children){
 React.createElement = function(type,props,...children){
   props = props || {};
   props.children = normalizeChildren(children);
+  const {key = null,...other} = props;
   return {
     type,
-    props,
-    key:props.key || null,
+    props:other,
+    key,
     _dom:null,
     _renderOne:null
   }
@@ -114,68 +115,38 @@ function renderOne(element){
   return domElement;
 }
 
-ReactDOM.render = function(element,mountNode){
+function render(element,mountNode){
   mountNode.appendChild(renderOne(element));
 }
 
+ReactDOM.render = render;
 
-//reactClass ReactELementclass BHelloMessage extends React.Component {
-  class BHelloMessage extends React.Component {
-    constructor(props) {
-      super(props);
-      this.state = {
-        arr: [0, 0, 0, 0]
-      };
-    }
-    render() {
-      return React.createElement(
-        "div",
-        null,
-        React.createElement(
-          "p",
-          null,
-          "Hello ",
-          this.props.name
-        ),
-        React.createElement(
-          "ul",
-          null,
-          this.state.arr.map((v, i) => React.createElement(
-            "li",
-            { key: i },
-            v
-          ))
-        ),
-        React.createElement(
-          "button",
-          { onClick: () => {
-  
-              this.setState({
-                arr: [Math.random() > 0.5 ? 1 : 0, Math.random() > 0.5 ? 1 : 0, Math.random() > 0.5 ? 1 : 0, Math.random() > 0.5 ? 1 : 0]
-              });
-            } },
-          "Random change"
-        )
-      );
-    }
-  }
-  
-  ReactDOM.render(React.createElement(BHelloMessage, { name: "Taylor" }), document.getElementById('root'));/**
- * 
 class BHelloMessage extends React.Component {
-  constructor(props){
-	  super(props)
+  constructor(props) {
+    super(props)
     this.state = {
-  		checked:true
-  	}
+      list: [0,1,2,3]
+    }
   }
   render() {
     return (
       <div>
-        <p>Hello {this.props.name} <span style={{color:'red'}}>{['unchecked','checked'][+this.state.checked]}</span></p>
-        <label><input type="checkbox" checked={this.state.checked} onClick={()=>this.setState({
-            	checked: !this.state.checked
-            })}/>change state</label>
+        <p>Hello {this.props.name}</p>
+        <ul>
+          {
+            this.state.list.map(v => <li key={v}>{v}</li>)
+          }
+        </ul>
+        <button onClick={() => {
+          let arr = this.state.list.slice();
+          arr.sort((a,b)=>{
+            return Math.random()-0.5;
+          });
+          console.log(this.state.list, arr);
+          this.setState({
+            list: arr
+          })
+        }}>Random change</button>
       </div>
     );
   }
@@ -185,4 +156,3 @@ ReactDOM.render(
   <BHelloMessage name="Taylor" />,
   document.getElementById('root')
 );
- */
