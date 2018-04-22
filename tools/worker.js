@@ -5,7 +5,10 @@ onmessage = function(e) {
   fetch(`./../src/${stage}.js`)
     .then(resp=>resp.text())
     .then(text=>{
-      const js = Babel.transform(text, { presets: ['react'] }).code;
+      const js = Babel.transform(text, { 
+        presets: ['react'] ,  
+        plugins: ["transform-object-rest-spread"]
+      }).code;
       postMessage(js);
     })
 }

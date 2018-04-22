@@ -2,8 +2,8 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-04-22 19:54:49
- * 更新列表
+ * @Last Modified time: 2018-04-22 21:28:41
+ * 更新列表，模拟domdiff算法
  * 
  * 
  * component 写代码时的对象，面向开发者 ，继承至 React.Component
@@ -28,60 +28,88 @@ class Component {
     Object.assign(this.state, newState);
     const new_element = this.render();
     const { _inner_element } = this;
-    let result = compareElement(new_element, _inner_element);
-    if(result.length){
-      // debugger;
-      result.forEach(r=>{
-        const { newEle, oldEle, diff } = r;
-        if(diff && diff.type === 'context'){
+    const patches = compareElement(new_element, _inner_element);
+    if(patches.length){
+      applyDiff(patches);
+    }else{
+      //no diff
+      return ;
+    }
+  }
+}
+React.Component = Component;
+
+
+//把element的差异更新到真实dom中
+function applyDiff(patches){
+  patches.forEach(r=>{
+    const { newEle, oldEle, diff } = r;
+    if(diff){
+      switch(diff.type){
+        case 'context':
           const {idx} = diff;
           if(typeof idx === 'undefined'){
             oldEle._dom.firstChild.textContent = newEle.props.children;
           }else{
             oldEle._dom.childNodes[idx].textContent = newEle.props.children[idx];
           }
-        }else{
-          const _dom = renderOne(newEle);
-          oldEle._dom.replaceWith(_dom);
-          oldEle._dom = _dom;
-        }
-        ['type','props','key'].forEach(key=>oldEle[key]=newEle[key]);
-      })
+        break;
+        case 'props':
+          const {diffProps} = diff;
+          diffProps.forEach(prop=>{
+            if(prop.type === 'props'){
+              prop.opr === 'update' && oldEle._dom.setAttribute(prop.key, prop.value);
+              prop.opr === 'delete' && oldEle._dom.removeAttribute(props.key)
+            }
+            if(prop.type === 'style'){
+              setDomStyleProps(oldEle._dom, { [prop.key]: prop.value })
+            }
+          })
+      }
     }else{
-      //no diff
-      return ;
+      const _dom = renderOne(newEle);
+      oldEle._dom.replaceWith(_dom);
+      oldEle._dom = _dom;
     }
-    
-  }
+    ['type','props','key'].forEach(key=>oldEle[key]=newEle[key]);
+  })
 }
-React.Component = Component;
 
 let currPointer = null;
-function compareElement(newEle,oldEle, result = []){ 
+function compareElement(newEle, oldEle, patches = []){ 
   //先假定同级节点的类型都一样
   if(Array.isArray(newEle) && Array.isArray(oldEle)){
     if(newEle.length === oldEle.length){
       newEle.forEach((ele,idx)=>{
         currPointer && (currPointer.idx = idx);
-        compareElement(ele, oldEle[idx],result)
+        compareElement(ele, oldEle[idx],patches)
       });
     }else{
-      currPointer && result.push(currPointer);
+      currPointer && patches.push(currPointer);
     }
   }else if(typeof newEle === 'object' && typeof oldEle === 'object'){
     if(
       newEle.type === oldEle.type && 
-      newEle.key === oldEle.key && 
-      comparePropsNotChild(newEle.props, oldEle.props) 
-    ){
-      currPointer = {newEle, oldEle};
-      compareElement(newEle.props.children, oldEle.props.children, result);
-    }else{
-      result.push({newEle, oldEle})
+      newEle.key === oldEle.key
+     ){
+       const diffProps = comparePropsNotChild(newEle.props, oldEle.props)
+       if(diffProps.length){
+         //同一个节点类型，属性有不一样
+          patches.push({newEle, oldEle, diff:{
+            type:'props',
+            diffProps
+          }})
+       }else{
+          //节点类型，key一样，比较子节点
+          currPointer = { newEle, oldEle };
+          compareElement(newEle.props.children, oldEle.props.children, patches);
+       }
+     }else{
+      patches.push({newEle, oldEle})
     }
   }else{
     if(newEle !== oldEle){
-      currPointer && result.push({
+      currPointer && patches.push({
         newEle:currPointer.newEle,
         oldEle:currPointer.oldEle,
         diff:{
@@ -91,37 +119,57 @@ function compareElement(newEle,oldEle, result = []){
       });
     }
   }
-  return result;
+  return patches;
 }
 
-//比较props,但不包括children
-function comparePropsNotChild(props1, props2){
-  const keyArr1 = Object.keys(props1);
-  const keyArr2 = Object.keys(props2);
-  return keyArr1.filter(key=>key!=='children').every(key=>{
-    if(key === 'style'){
-      return comparePropsNotChild(props1.style,props2.style);
-    }else if(typeof props1[key] === 'function' && typeof props2[key] === 'function'){
-      return props1[key].toString() === props2[key].toString();
-    }else{
-      return props1[key] === props2[key];
+/**
+ * 比较props,但不包括children
+ * @param {*} newProps 
+ * @param {*} oldProps 
+ * @param {*} diffProps 
+ *      [{ type:'props', key:'className', opr:'update/delete', value:'__new__class' }]
+ *      [{ type:'style', key:'color', opr:'update/delete', value:'red' }]
+ */
+function comparePropsNotChild(newProps, oldProps, diffProps = []){
+  const newArr = Object.keys(newProps).filter(prop=>prop!=='children');
+  const oldArr = Object.keys(oldProps).filter(prop=>prop!=='children');
+  newArr.forEach((prop,idx)=>{
+    if('style' === prop){
+      const styleDiff = comparePropsNotChild(newProps.style, oldProps.style);
+      (styleDiff.length) &&(diffProps = diffProps.concat(styleDiff.map(item=>{
+        return { ...item , type:'style'};
+      })))
+    }else if(typeof newProps[prop] === 'function' && typeof oldProps[prop] === 'function'){
+
+    }else if(oldProps[prop] !== newProps[prop]){
+      diffProps.push({type:'props', key:prop, opr:'update', value:newProps[prop]});
     }
-  })
+    oldArr.splice(idx,1);
+  });
+  oldArr.length && diffProps.concat(oldArr.map(prop=>({type:'props', key:prop, opr:'delete'})))
+  return diffProps;
 }
 
 //return object
 React.createElement = function(type,props,...children){
   props = props || {};
   props.children = arguments.length === 3 ? children[0] : children;
-  // const {key,...other} = props;
+  const {key = null,...other} = props; //最新版的chrome已经支持这个语法了，但是babel居然要 transform-object-rest-spread 才能支持
   return {
     type,
-    props,
-    key: props.key === undefined ? null : props.key,
+    props:other,
+    key,
     _inst:null,
     _inner_element:null,
     _dom:null,
     _renderOne:null
+  }
+}
+
+function setDomStyleProps(dom, style){
+  Object.assign(dom.style, style);
+  if( typeof style.width === 'number'){
+    dom.style.width = style.width + 'px';
   }
 }
 
@@ -138,7 +186,7 @@ function renderOne(element){
       const { props } = element;
       if(props.style){
         //此处要建立一个css in js 和 css prop 的对应关系，一般是建立一个字典，然后有特殊的特殊处理，鉴于时间问题先省略
-        Object.assign(dom.style, props.style);
+        setDomStyleProps(dom, props.style);
       }
       props.type && dom.setAttribute('type',props.type);
       props.checked &&  dom.setAttribute('checked',!!props.checked);
@@ -193,6 +241,7 @@ class BHelloMessage extends React.Component {
           }
         </ul>
         <span>{list[0]}{list[1]}</span>
+        <p style={{background:'red',width:list[0]*10+100}} id={'aaa'+list[0]}>a</p>
         <button onClick={() => {
           let arr = this.state.list.slice();
           arr.sort((a,b)=>{
