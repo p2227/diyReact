@@ -2,7 +2,7 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-05-02 15:48:03
+ * @Last Modified time: 2018-05-03 00:30:46
  * 更新列表，模拟domdiff算法
  * 
  * 
@@ -69,40 +69,35 @@ function applyPatches(patches){
                 setDomStyleProps(oldEle._dom, { [prop.key]: prop.value }); //todo: style 可以合并处理
               }
             })
-            const {children} = oldEle.props;
             oldEle.props = newEle.props;
-            oldEle.props.children = children;
           }
           break;
         case 'children':{
             debugger;
             const {reorderChildren, addChildren, delChildren} = diff;
-            const oldDOMChildren = [...oldEle._dom.childNodes];
+            const oldDOMChildren = oldEle._dom.childNodes;
             const oldChildren = oldEle.props.children;
-            const oldChildrenClone = oldChildren.slice();
-            reorderChildren.forEach((item)=>{
-              const { newIdx, oldIdx } = item;
-              oldEle._dom.insertBefore(oldDOMChildren[oldIdx],oldDOMChildren[newIdx+1]);
-              swapArrayItem(oldChildren, newIdx, oldIdx);
-            });
-
-            addChildren.forEach((item)=>{
-              const { ele, idx } = item;
-              oldEle._dom.insertBefore(oldEle._renderOne(ele),oldDOMChildren[idx+1]);
-              const oldIdx = oldChildren.find(item=>item === oldChildrenClone[idx]);
-              if(oldIdx){
-                oldChildren.splice(oldIdx,0,ele);
-              }else{
-                oldChildren.push(ele);
-              }
-            });
 
             delChildren.forEach((item)=>{
               const { ele, idx } = item;
               ele._dom.parentNode.removeChild(ele._dom);//如果只考虑chrome, 可以直接 ele._dom.remove();
-              const oldIdx = oldChildren.find(item=>item === oldChildrenClone[idx]);
-              oldChildren.splice(oldIdx,1);
+              oldChildren.splice(idx,1);
             });
+            
+            addChildren.forEach((item)=>{
+              const { ele, idx } = item;
+              const newInsertDOM = oldEle._renderOne(ele);
+              oldEle._dom.insertBefore(newInsertDOM,oldDOMChildren[idx+1]);
+              oldChildren.splice(idx,0,ele);
+            });
+
+            // reorderChildren.forEach((item)=>{
+            //   const { newIdx, oldIdx } = item;
+            //   oldEle._dom.insertBefore(oldDOMChildren[oldIdx],oldDOMChildren[newIdx+1]);
+            //   swapArrayItem(oldChildren, newIdx, oldIdx);
+            // });
+
+            newEle.props.children = oldChildren;
           }
           break;
       }
@@ -160,20 +155,55 @@ function compareElement(newEle, oldEle, patches = []) {
         });
       }
     } else if (Array.isArray(newEle)) { //一排子元素，最复杂的情况
+      /**
+       * 我们来简化一下情况，
+       * 要么子元素所有都有key，要么都没有
+       * 如果有key,key唯一
+       */
       //克隆一份，然后针对克隆的直接应用index
       const oldEleClone = oldEle.slice();
       const newEleClone = newEle.slice();
-      const oldObj = changeArrayChildToObject(oldEle);
-      const newObj = changeArrayChildToObject(newEle);
-
-      const reorderChildren = [];
-      const addChildren = [];
+      /**
+       * 
+       * oldObj = {
+       *  [key1]:{ idx, item },
+       *  [key2]:{ idx, item },
+       * }
+       */
+      
       const delChildren = [];
-
-      if (Object.keys(oldObj).length) { //old children 有 key 
-        newEle.forEach((ele, idx) => {
+      const addChildren = [];
+      const reorderChildren = [];
+      const newObj = changeArrayChildToObject(newEleClone);
+      if(Object.keys(newObj).length){
+        for (let i = oldEleClone.length - 1; i >= 0; i--) {
+          const ele = oldEleClone[i];
+          const newOneEle = newObj[ele.key];
+          if (!newOneEle) {
+            //旧的里面有，新的里面没有，要删除
+            delChildren.push({
+              ele, idx: i
+            });
+            oldEleClone.splice(i, 1);
+          }
+        }
+  
+        const oldObj = changeArrayChildToObject(oldEleClone);
+        for (let i = newEleClone.length - 1; i >= 0; i--) {
+          const ele = newEleClone[i];
+          const oldOneEle = oldObj[ele.key];
+          if (!oldOneEle) {
+            //新的里面有，旧的里面没有，要新增
+            addChildren.push({
+              ele, idx: i
+            });
+            oldEleClone.splice(i, 0, ele);
+          }
+        }
+  
+        newEleClone.forEach((ele, idx) => {
           let oldOneEle = oldObj[ele.key];
-          if (oldOneEle){
+          if (oldOneEle) {
             if (oldOneEle.idx !== idx) {
               reorderChildren.push({
                 oldIdx: oldOneEle.idx,
@@ -181,47 +211,30 @@ function compareElement(newEle, oldEle, patches = []) {
               });
               swapArrayItem(oldEleClone, oldOneEle.idx, idx);
             }
-            //剩下的情况是，新和旧的key和位置都不一样，不用处理
-          }else{
-            //新的里面有，旧的时候没有，要新增
-            addChildren.push({
-              ele,idx
-            });
           }
         });
-
-        oldEle.forEach((ele,idx)=>{
-          let newOneEle = newObj[ele.key];
-          if(!newOneEle){
-            delChildren.push({
-              ele,idx
-            });
-          }
-        })
-
-        // if()
-        // debugger;
+  
         currPointer && patches.push({
           newEle: currPointer.newEle,
           oldEle: currPointer.oldEle,
           diff: {
             type: 'children',
-            reorderChildren,
+            delChildren,
             addChildren,
-            delChildren
+            reorderChildren,
           }
         });
       }
-      
-      newEleClone.forEach((ele,idx)=>{
+
+      newEleClone.forEach((ele, idx) => {
         currPointer && (currPointer.idx = idx);
         compareElement(ele, oldEleClone[idx], patches);
-      })
+      });
       
     } else if (typeof newEle === 'object') { //同一类型的两个元素
       if (
         newEle.type === oldEle.type &&
-        newEle.key === oldEle.key
+        newEle.key === oldEle.key //namespace
       ) {
         const diffProps = comparePropsNotChild(newEle.props, oldEle.props);
         if (diffProps.length) {
@@ -385,15 +398,14 @@ class BHelloMessage extends React.Component {
         }
         <ul>
         {
-          !a ? [
+          a ? [
               <li key="1">1</li>,
               <li key="2">2</li>,
               <li key="3">3</li>
           ]: [
             <li key="1">1</li>,
-            <li key="4">4</li>,
-              <li key="2">2</li>,
-              <li key="5">5</li>,
+            <li key="2">2</li>,
+            <li key="4">4</li>
           ]
         }
         </ul>
@@ -407,7 +419,7 @@ class BHelloMessage extends React.Component {
           console.log(this.state.list, arr);
           this.setState({
             list: arr,
-            a: !a
+            a: !this.state.a
           })
         }}>Random change</button>
       </div>
