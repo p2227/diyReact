@@ -2,7 +2,7 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-05-03 00:30:46
+ * @Last Modified time: 2018-05-03 22:33:33
  * 更新列表，模拟domdiff算法
  * 
  * 
@@ -29,6 +29,7 @@ class Component {
     Object.assign(this.state, newState);
     const new_element = this.render();
     const { _inner_element } = this;
+    debugger;
     const patches = compareElement(new_element, _inner_element);
     if(patches.length){
       applyPatches(patches);
@@ -73,7 +74,6 @@ function applyPatches(patches){
           }
           break;
         case 'children':{
-            debugger;
             const {reorderChildren, addChildren, delChildren} = diff;
             const oldDOMChildren = oldEle._dom.childNodes;
             const oldChildren = oldEle.props.children;
@@ -91,13 +91,11 @@ function applyPatches(patches){
               oldChildren.splice(idx,0,ele);
             });
 
-            // reorderChildren.forEach((item)=>{
-            //   const { newIdx, oldIdx } = item;
-            //   oldEle._dom.insertBefore(oldDOMChildren[oldIdx],oldDOMChildren[newIdx+1]);
-            //   swapArrayItem(oldChildren, newIdx, oldIdx);
-            // });
-
-            newEle.props.children = oldChildren;
+            reorderChildren.forEach((item)=>{
+              const { newIdx, oldIdx } = item;
+              oldEle._dom.insertBefore(oldDOMChildren[oldIdx],oldDOMChildren[newIdx]);
+              swapArrayItem(oldChildren, newIdx, oldIdx);
+            });
           }
           break;
       }
@@ -188,7 +186,7 @@ function compareElement(newEle, oldEle, patches = []) {
           }
         }
   
-        const oldObj = changeArrayChildToObject(oldEleClone);
+        let oldObj = changeArrayChildToObject(oldEleClone);
         for (let i = newEleClone.length - 1; i >= 0; i--) {
           const ele = newEleClone[i];
           const oldOneEle = oldObj[ele.key];
@@ -201,18 +199,30 @@ function compareElement(newEle, oldEle, patches = []) {
           }
         }
   
-        newEleClone.forEach((ele, idx) => {
+        oldObj = changeArrayChildToObject(oldEleClone);
+        const swapEdIdx = {};
+        let swapPointer = 0;
+        while (swapPointer < newEleClone.length) {
+          if (swapEdIdx[swapPointer]){
+            swapPointer++;
+            continue;
+          }
+          let ele = newEleClone[swapPointer];
           let oldOneEle = oldObj[ele.key];
           if (oldOneEle) {
-            if (oldOneEle.idx !== idx) {
+            if (oldOneEle.idx !== swapPointer) {
               reorderChildren.push({
                 oldIdx: oldOneEle.idx,
-                newIdx: idx
+                newIdx: swapPointer
               });
-              swapArrayItem(oldEleClone, oldOneEle.idx, idx);
+              swapArrayItem(oldEleClone, oldOneEle.idx, swapPointer);
+              swapEdIdx[oldOneEle.idx] = true;
+              swapEdIdx[swapPointer] = true;
             }
+            compareElement(ele, oldEleClone);
           }
-        });
+          swapPointer++;
+        }
   
         currPointer && patches.push({
           newEle: currPointer.newEle,
@@ -224,13 +234,12 @@ function compareElement(newEle, oldEle, patches = []) {
             reorderChildren,
           }
         });
+      }else{
+        newEleClone.forEach((ele, idx) => {
+          currPointer && (currPointer.idx = idx);
+          compareElement(ele, oldEleClone[idx], patches);
+        });
       }
-
-      newEleClone.forEach((ele, idx) => {
-        currPointer && (currPointer.idx = idx);
-        compareElement(ele, oldEleClone[idx], patches);
-      });
-      
     } else if (typeof newEle === 'object') { //同一类型的两个元素
       if (
         newEle.type === oldEle.type &&
@@ -255,10 +264,6 @@ function compareElement(newEle, oldEle, patches = []) {
     }
   }
   return patches;
-}
-
-function compareArrayChildren(newChild, oldChild){
-
 }
 
 /**
@@ -401,11 +406,39 @@ class BHelloMessage extends React.Component {
           a ? [
               <li key="1">1</li>,
               <li key="2">2</li>,
-              <li key="3">3</li>
+              <li key="3">3</li>,
           ]: [
             <li key="1">1</li>,
             <li key="2">2</li>,
-            <li key="4">4</li>
+          ]
+        }
+        </ul>
+        <hr/>
+        <ul>
+        {
+          a ? [
+              <li key="1">1</li>,
+              <li key="2">2</li>,
+              <li key="3">3</li>,
+          ]: [
+            <li key="1">1</li>,
+            <li key="2">2</li>,
+            <li key="3">3</li>,
+            <li key="4">4</li>,
+          ]
+        }
+        </ul>
+        <hr/>
+        <ul>
+        {
+          a ? [
+              <li key="1">1</li>,
+              <li key="2">2</li>,
+              <li key="3">3</li>,
+          ]: [
+            <li key="1">1</li>,
+            <li key="3">3</li>,
+            <li key="2">2</li>,
           ]
         }
         </ul>
@@ -431,22 +464,3 @@ ReactDOM.render(
   <BHelloMessage name="Taylor" />,
   document.getElementById('root')
 );
-
-/**
- * 
- *           a ? [
-              <li key="1">1</li>,
-              <li key="2">2</li>,
-              <li>A</li>,
-              <li>B</li>,
-              <li key="3">3</li>,
-              <li>C</li>
-          ]: [
-              <li key="2">2</li>,
-              <li key="4">4</li>,
-              <li>C</li>,
-              <li>A</li>,
-              <li key="3">3</li>,
-              <li>E</li>
-          ]
- */
