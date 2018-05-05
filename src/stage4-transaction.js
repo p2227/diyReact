@@ -2,7 +2,7 @@
  * @Author: kqy 
  * @Date: 2018-04-16 15:02:12 
  * @Last Modified by: kqy
- * @Last Modified time: 2018-05-04 10:59:45
+ * @Last Modified time: 2018-05-05 21:51:53
  * 更新列表，模拟domdiff算法
  * 
  * 
@@ -25,8 +25,13 @@ class Component {
   constructor(props){
     this.props = props;
   }
-  setState(newState){
-    Object.assign(this.state, newState);
+  setState(partialState,cb){
+    batchUpdater.stateQueue.push(partialState);
+    cb && batchUpdater.cbQueue.push(cb);
+    batchUpdater.dirtyComponents.push(this);
+  }
+  updateComponent(allState){
+    Object.assign(this.state, allState);
     const new_element = this.render();
     const { _inner_element } = this;
     const patches = compareElement(new_element, _inner_element);
@@ -39,6 +44,35 @@ class Component {
   }
 }
 React.Component = Component;
+
+const batchUpdater = {
+  isUpdating:false,
+  stateQueue:[],
+  cbQueue:[],
+  dirtyComponents:[],
+  open(){
+    batchUpdater.isUpdating = false;
+  },
+  close(){
+    batchUpdater.isUpdating = true;
+    var allState = batchUpdater.stateQueue.reduce((prev,state)=>{
+      return Object.assign(prev,state);
+    });
+    batchUpdater.dirtyComponents.forEach(comp=>{
+      comp.updateComponent(allState)
+    });
+    batchUpdater.cbQueue.forEach((fn,idx)=>{
+      fn.call(batchUpdater.dirtyComponents[idx]);
+    });
+  },
+  wrapper:function(fn){
+    return function(e){
+      batchUpdater.open();
+      fn(e);
+      batchUpdater.close();
+    }
+  }
+}
 
 
 //更新差异 1. 应用到虚拟dom,应用到真实dom
@@ -335,7 +369,7 @@ function renderOne(element){
       props.checked &&  dom.setAttribute('checked',!!props.checked);
       if(props.onClick){
         //react中是使用合成事件的，鉴于时间问题先省略
-        dom.addEventListener('click',props.onClick);
+        dom.addEventListener('click',batchUpdater.wrapper(props.onClick));
       }
       if(typeof props.children !== 'undefined'){
         if(props.children.forEach){
@@ -400,59 +434,24 @@ class BHelloMessage extends React.Component {
            *
            */
         }
-        <ul>
-        {
-          a ? [
-              <li key="1">1</li>,
-              <li key="2">2</li>,
-              <li key="3">3</li>,
-          ]: [
-            <li key="1">1</li>,
-            <li key="2">2</li>,
-          ]
-        }
-        </ul>
-        <hr/>
-        <ul>
-        {
-          a ? [
-              <li key="1">1</li>,
-              <li key="2">2</li>,
-              <li key="3">3</li>,
-          ]: [
-            <li key="1">1</li>,
-            <li key="2">2</li>,
-            <li key="3">3</li>,
-            <li key="4">4</li>,
-          ]
-        }
-        </ul>
-        <hr/>
-        <ul>
-        {
-          a ? [
-              <li key="1">1</li>,
-              <li key="2">2</li>,
-              <li key="3">3</li>,
-          ]: [
-            <li key="1">1</li>,
-            <li key="3">3</li>,
-            <li key="2">2</li>,
-          ]
-        }
-        </ul>
+        <span>a: {''+a}</span>
         <span>{list[0]}{list[1]}</span>
         <p style={{background:'red',width:list[0]*10+100}} id={'aaa'+list[0]}>a</p>
         <button onClick={() => {
+          this.setState({
+            a: !this.state.a
+          });
+          console.log(this.state.a);
           let arr = this.state.list.slice();
           arr.sort((a,b)=>{
             return Math.random()-0.5;
           });
           console.log(this.state.list, arr);
           this.setState({
-            list: arr,
-            a: !this.state.a
-          })
+            list: arr
+          },function(){
+            console.log(this.state);
+          });
         }}>Random change</button>
       </div>
     );
